@@ -86,6 +86,7 @@ THIRD_PARTY_APPS = [
     "ninja",
     "ninja_extra",
     "corsheaders",
+    "django_vite"
 
 
 ]
@@ -333,5 +334,13 @@ SOCIALACCOUNT_FORMS = {"signup": "{{project_name}}.users.forms.UserSocialSignupF
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup
 CORS_URLS_REGEX = r"^/api/.*$"
 
+# DJANGO VITE
+# ------------------------------------------------------------------------------
+DJANGO_VITE = {
+    "default": {
+        "dev_mode": DEBUG,
+
+    }
+}
 # Your stuff...
 # ------------------------------------------------------------------------------
