@@ -19,6 +19,7 @@ dependencies = [
     "django[argon2]==5.1.11",
     "drf-spectacular>=0.28.0",
     "flower>=2.0.1",
+    "granian>=2.4.1",
     "pillow>=11.3.0",
     "psycopg[pool]>=3.2.9",
     "python-slugify>=8.0.4",

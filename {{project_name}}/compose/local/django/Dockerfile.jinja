@@ -1,0 +1,90 @@
+# Etap budowania
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+
+# Build arguments
+ARG APP_HOME=/app
+
+# Ustawienie katalogu roboczego
+WORKDIR ${APP_HOME}
+
+# Instalacja tylko niezbędnych zależności systemowych do budowy
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    build-essential \
+    libpq-dev \
+    gettext \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Kopiowanie tylko plików potrzebnych do instalacji zależności
+COPY pyproject.toml uv.lock ./
+
+# Instalacja zależności Pythona
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-install-project
+
+# Etap finalny
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+# Metadane
+LABEL maintainer="maintainer@example.com" \
+      description="Django application with Celery" \
+      version="1.0"
+
+# Build arguments
+ARG APP_HOME=/app
+ARG USER_NAME=app
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# Environment variables
+ENV PYTHONUNBUFFERED=1 \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=0 \
+    PATH="${APP_HOME}/.venv/bin:$PATH" \
+    PYTHONPATH="${APP_HOME}/.venv/lib/python3.12/site-packages:$PYTHONPATH"
+
+# Instalacja niezbędnych pakietów produkcyjnych
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    libpq-dev \
+    wait-for-it \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Utworzenie użytkownika niepriwilegowanego
+RUN groupadd --gid ${USER_GID} ${USER_NAME} \
+    && useradd --uid ${USER_UID} --gid ${USER_GID} \
+    --shell /bin/bash --create-home ${USER_NAME}
+
+# Utworzenie i konfiguracja katalogów
+RUN mkdir -p ${APP_HOME} \
+    && chown ${USER_NAME}:${USER_NAME} ${APP_HOME}
+
+WORKDIR ${APP_HOME}
+
+# Kopiowanie zależności z etapu budowania
+COPY --from=builder ${APP_HOME}/.venv ${APP_HOME}/.venv
+
+# Kopiowanie kodu aplikacji
+COPY --chown=${USER_NAME}:${USER_NAME} . ${APP_HOME}
+
+# Kopiowanie i konfiguracja skryptów
+COPY --chown=${USER_NAME}:${USER_NAME} ./compose/production/django/entrypoint /entrypoint
+COPY --chown=${USER_NAME}:${USER_NAME} ./compose/local/django/start /start
+COPY --chown=${USER_NAME}:${USER_NAME} ./compose/local/django/celery/worker/start /start-celeryworker
+COPY --chown=${USER_NAME}:${USER_NAME} ./compose/local/django/celery/beat/start /start-celerybeat
+COPY --chown=${USER_NAME}:${USER_NAME} ./compose/local/django/celery/flower/start /start-flower
+
+# Konfiguracja skryptów
+RUN chmod +x /entrypoint /start /start-celeryworker /start-celerybeat /start-flower
+
+# Przełączenie na użytkownika niepriwilegowanego
+USER ${USER_NAME}
+
+
+# Zdrowie kontenera
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health/ || exit 1
+
+ENTRYPOINT ["/entrypoint"]
+CMD ["/start"]
