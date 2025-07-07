@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+### Remove a database backup.
+###
+### Parameters:
+###     <1> filename of a backup to remove.
+###
+### Usage:
+###     $ docker-compose -f <environment>.yml (exec |run --rm) postgres rmbackup <1>
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# Constants
+readonly EXIT_MISSING_PARAMETER=1
+readonly EXIT_FILE_NOT_FOUND=2
+
+working_dir="$(dirname ${0})"
+source "${working_dir}/_sourced/constants.sh"
+source "${working_dir}/_sourced/messages.sh"
+
+# Function to validate backup file existence
+validate_backup_file() {
+    local backup_path="$1"
+    if [[ ! -f "${backup_path}" ]]; then
+        message_error "No backup with the specified filename found. Check out the 'backups' maintenance script output to see if there is one and try again."
+        exit ${EXIT_FILE_NOT_FOUND}
+    fi
+}
+
+# Function to check if required parameter is provided
+validate_input_parameter() {
+    if [[ -z ${1+x} ]]; then
+        message_error "Backup filename is not specified yet it is a required parameter. Make sure you provide one and try again."
+        exit ${EXIT_MISSING_PARAMETER}
+    fi
+}
+
+# Function to remove backup file
+remove_backup_file() {
+    local backup_path="$1"
+    message_welcome "Removing the '${backup_path}' backup file..."
+    rm -r "${backup_path}"
+    message_success "The '${backup_path}' database backup has been removed."
+}
+
+# Main execution
+validate_input_parameter "$@"
+backup_path="${BACKUP_DIR_PATH}/${1}"
+validate_backup_file "${backup_path}"
+remove_backup_file "${backup_path}"

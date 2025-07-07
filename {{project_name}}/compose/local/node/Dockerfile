@@ -3,6 +3,6 @@ WORKDIR /app
 
 COPY ./package.json ./bun.lock /app/
 
-RUN bun install && bun pm cache rm -g -f
+RUN bun install --no-cache
 
 ENV PATH=./node_modules/.bin/:$PATH

@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Enable strict mode
+set -o errexit  # Exit on error
+set -o pipefail # Exit on pipe failure
+set -o nounset  # Exit on undefined variable
+
+# Constants
+readonly DEFAULT_POSTGRES_USER='postgres'
+readonly POSTGRES_TIMEOUT=30
+readonly REQUIRED_ENV_VARS=("POSTGRES_PASSWORD" "POSTGRES_HOST" "POSTGRES_PORT" "POSTGRES_DB")
+
+# Check for required environment variables
+for var in "${REQUIRED_ENV_VARS[@]}"; do
+    if [ -z "${!var:-}" ]; then
+        echo "Error: Required environment variable $var is not set" >&2
+        exit 1
+    fi
+done
+
+# Set default postgres user if not provided
+if [ -z "${POSTGRES_USER:-}" ]; then
+    export POSTGRES_USER="${DEFAULT_POSTGRES_USER}"
+fi
+
+# Construct and export database URL
+export DATABASE_URL="postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+
+# Wait for PostgreSQL to become available
+if ! wait-for-it "${POSTGRES_HOST}:${POSTGRES_PORT}" -t "${POSTGRES_TIMEOUT}"; then
+    echo "Error: PostgreSQL did not become available in ${POSTGRES_TIMEOUT} seconds" >&2
+    exit 1
+fi
+
+echo 'PostgreSQL is available' >&2
+
+# Execute the passed command
+exec "$@"

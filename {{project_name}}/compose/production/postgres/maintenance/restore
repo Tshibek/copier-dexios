@@ -1,0 +1,85 @@
+
+#!/usr/bin/env bash
+
+### Restore database from a backup.
+###
+### Parameters:
+###     <1> filename of an existing backup.
+###
+### Usage:
+###     $ docker compose -f <environment>.yml (exec |run --rm) postgres restore <1>
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+# Load dependencies
+working_dir="$(dirname ${0})"
+source "${working_dir}/_sourced/constants.sh"
+source "${working_dir}/_sourced/messages.sh"
+
+# Error messages
+readonly ERR_NO_FILENAME="Backup filename is not specified yet it is a required parameter. Make sure you provide one and try again."
+readonly ERR_NO_BACKUP="No backup with the specified filename found. Check out the 'backups' maintenance script output to see if there is one and try again."
+readonly ERR_POSTGRES_USER="Restoring as 'postgres' user is not supported. Assign 'POSTGRES_USER' env with another one and try again."
+
+validate_input() {
+    local backup_name=$1
+    if [[ -z ${backup_name+x} ]]; then
+        message_error "${ERR_NO_FILENAME}"
+        exit 1
+    fi
+}
+
+validate_backup_exists() {
+    local backup_path=$1
+    if [[ ! -f "${backup_path}" ]]; then
+        message_error "${ERR_NO_BACKUP}"
+        exit 1
+    fi
+}
+
+validate_postgres_user() {
+    if [[ "${POSTGRES_USER}" == "postgres" ]]; then
+        message_error "${ERR_POSTGRES_USER}"
+        exit 1
+    fi
+}
+
+setup_db_environment() {
+    export PGHOST="${POSTGRES_HOST}"
+    export PGPORT="${POSTGRES_PORT}"
+    export PGUSER="${POSTGRES_USER}"
+    export PGPASSWORD="${POSTGRES_PASSWORD}"
+    export PGDATABASE="${POSTGRES_DB}"
+}
+
+restore_database() {
+    local backup_path=$1
+    
+    message_info "Dropping the database..."
+    dropdb "${PGDATABASE}"
+    
+    message_info "Creating a new database..."
+    createdb --owner="${POSTGRES_USER}"
+    
+    message_info "Applying the backup to the new database..."
+    gunzip -c "${backup_path}" | psql "${POSTGRES_DB}"
+}
+
+main() {
+    validate_input "$@"
+    
+    local backup_path="${BACKUP_DIR_PATH}/${1}"
+    validate_backup_exists "${backup_path}"
+    
+    message_welcome "Restoring the '${POSTGRES_DB}' database from the '${backup_path}' backup..."
+    
+    validate_postgres_user
+    setup_db_environment
+    restore_database "${backup_path}"
+    
+    message_success "The '${POSTGRES_DB}' database has been restored from the '${backup_path}' backup."
+}
+
+main "$@"

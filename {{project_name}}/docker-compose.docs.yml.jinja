@@ -1,7 +1,7 @@
 services:
   docs:
-    image: {{ project_name }}_local_docs
-    container_name: {{ project_name }}_local_docs
+    image: {{project_name}}_local_docs
+    container_name: {{project_name}}_local_docs
     build:
       context: .
       dockerfile: ./compose/local/docs/Dockerfile

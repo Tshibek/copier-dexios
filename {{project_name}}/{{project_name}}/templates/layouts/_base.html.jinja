@@ -1,5 +1,13 @@
+{% raw %}
 {% load django_vite %}
+{% endraw %}
+{% raw %}
 
 {% vite_hmr_client %}
+{% endraw %}
+
+{% raw %}
 
 {% vite_asset './{{ project_name }}/static/js/main.js' %}
+
+{% endraw %}
