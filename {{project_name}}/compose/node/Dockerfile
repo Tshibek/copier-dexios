@@ -1,8 +1,8 @@
-FROM docker.io/node:22.14-alpine
+FROM oven/bun:1
 WORKDIR /app
 
-COPY ./package.json /app
+COPY ./package.json ./bun.lock /app/
 
-RUN npm install && npm cache clean --force
+RUN bun install && bun pm cache rm -g -f
 
 ENV PATH=./node_modules/.bin/:$PATH
